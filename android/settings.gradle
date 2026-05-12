@@ -1,4 +1,4 @@
-include ':app', ':sdk'
+include ':app', ':sdk', ':sample-app'
 
 includeBuild('../node_modules/@react-native/gradle-plugin')
 

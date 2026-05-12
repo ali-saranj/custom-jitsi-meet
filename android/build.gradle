@@ -91,12 +91,16 @@ allprojects {
             publications {}
             repositories {
                 maven {
-                    url rootProject.ext.mavenRepo
-                    if (!rootProject.ext.mavenRepo.startsWith("file")) {
-                        credentials {
-                            username rootProject.ext.mavenUser
-                            password rootProject.ext.mavenPassword
+                    name = "GitHubPackages"
+                    url = uri("https://maven.pkg.github.com/ali-saranj/custom-jitsi-meet")
+                    credentials {
+                        def props = new Properties()
+                        def localProps = rootProject.file("local.properties")
+                        if (localProps.exists()) {
+                            props.load(new FileInputStream(localProps))
                         }
+                        username = props.getProperty("gpr.user") ?: System.getenv("GITHUB_ACTOR") ?: ""
+                        password = props.getProperty("gpr.key") ?: System.getenv("GITHUB_TOKEN") ?: ""
                     }
                 }
             }

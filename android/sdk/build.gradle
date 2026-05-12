@@ -32,6 +32,23 @@ android {
             }
         }
     }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    packagingOptions {
+        pickFirst '**/*.so'
+        pickFirst 'lib/**/libc++_shared.so'
+        exclude 'META-INF/DEPENDENCIES'
+        exclude 'META-INF/NOTICE'
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/LICENSE.txt'
+        exclude 'META-INF/NOTICE.txt'
+        exclude 'META-INF/ASL2.0'
+        exclude 'META-INF/AL2.0'
+        exclude 'META-INF/LGPL2.1'
+        exclude 'META-INF/kotlin-project-structure-metadata.json'
+    }
     namespace 'org.jitsi.meet.sdk'
 }
 
@@ -211,52 +228,94 @@ android.libraryVariants.all { def variant ->
 }
 
 
+def getGitVersion() {
+    def stdout = new ByteArrayOutputStream()
+    try {
+        exec {
+            commandLine 'git', 'describe', '--tags', '--always', '--dirty'
+            standardOutput = stdout
+        }
+        def version = stdout.toString().trim()
+        if (version.startsWith("v")) {
+            version = version.substring(1)
+        }
+        return version
+    } catch (Exception e) {
+        return "1.0.0-SNAPSHOT"
+    }
+}
+
+def getGithubUser() {
+    def props = new Properties()
+    def localProps = project.rootProject.file("local.properties")
+    if (localProps.exists()) {
+        props.load(new FileInputStream(localProps))
+    }
+    return props.getProperty("gpr.user") ?: project.findProperty("gpr.user") ?: System.getenv("GITHUB_ACTOR") ?: ""
+}
+
+def getGithubToken() {
+    def props = new Properties()
+    def localProps = project.rootProject.file("local.properties")
+    if (localProps.exists()) {
+        props.load(new FileInputStream(localProps))
+    }
+    return props.getProperty("gpr.key") ?: project.findProperty("gpr.key") ?: System.getenv("GITHUB_TOKEN") ?: ""
+}
+
+task sourcesJar(type: Jar) {
+    archiveClassifier.set('sources')
+    from android.sourceSets.main.java.srcDirs
+}
+
 publishing {
     publications {
-        aarArchive(MavenPublication) {
-            groupId 'org.jitsi.react'
-            artifactId 'jitsi-meet-sdk'
-            version System.env.OVERRIDE_SDK_VERSION ?: project.sdkVersion
+        release(MavenPublication) {
+            groupId 'io.github.ali-saranj'
+            artifactId 'custom-jitsi-sdk'
+            version getGitVersion()
 
             artifact("${project.buildDir}/outputs/aar/${project.name}-release.aar") {
                 extension "aar"
             }
+            artifact sourcesJar
+
             pom.withXml {
                 def pomXml = asNode()
-                pomXml.appendNode('name', 'jitsi-meet-sdk')
+                pomXml.appendNode('name', 'custom-jitsi-sdk')
                 pomXml.appendNode('description', 'Jitsi Meet SDK for Android')
                 def dependencies = pomXml.appendNode('dependencies')
-                configurations.getByName('releaseCompileClasspath').getResolvedConfiguration().getFirstLevelModuleDependencies().each {
-                    // The (third-party) React Native modules that we depend on
-                    // are in source code form and do not have groupId. That is
-                    // why we have a dedicated groupId for them. But the other
-                    // dependencies come through Maven and, consequently, have
-                    // groupId.
-                    def groupId = it.moduleGroup
-                    def artifactId = it.moduleName
+                
+                // Add dependencies from 'releaseCompileClasspath'
+                try {
+                    configurations.getByName('releaseCompileClasspath').getResolvedConfiguration().getFirstLevelModuleDependencies().each {
+                        def groupId = it.moduleGroup
+                        def artifactId = it.moduleName
 
-                    if (artifactId.contains('react-native')) {
-                        groupId = rootProject.ext.moduleGroupId
+                        if (artifactId.contains('react-native')) {
+                            groupId = rootProject.ext.moduleGroupId
+                        }
+
+                        def dependency = dependencies.appendNode('dependency')
+                        dependency.appendNode('groupId', groupId)
+                        dependency.appendNode('artifactId', artifactId)
+                        dependency.appendNode('version', it.moduleVersion)
                     }
-
-                    def dependency = dependencies.appendNode('dependency')
-                    dependency.appendNode('groupId', groupId)
-                    dependency.appendNode('artifactId', artifactId)
-                    dependency.appendNode('version', it.moduleVersion)
+                } catch (Exception e) {
+                    println("Warning: Could not resolve dependencies for POM.")
                 }
             }
         }
-
     }
     repositories {
         maven {
-            url rootProject.ext.mavenRepo
-            if (!rootProject.ext.mavenRepo.startsWith("file")) {
-                credentials {
-                    username rootProject.ext.mavenUser
-                    password rootProject.ext.mavenPassword
-                }
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/ali-saranj/custom-jitsi-meet")
+            credentials {
+                username = getGithubUser()
+                password = getGithubToken()
             }
         }
     }
 }
+

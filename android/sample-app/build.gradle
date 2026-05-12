@@ -21,10 +21,26 @@ android {
     }
 }
 
+repositories {
+    mavenLocal()
+    google()
+    mavenCentral()
+    maven {
+        url = uri("https://maven.pkg.github.com/ali-saranj/custom-jitsi-meet")
+        credentials {
+            def props = new Properties()
+            def localProps = rootProject.file("local.properties")
+            if (localProps.exists()) {
+                props.load(new FileInputStream(localProps))
+            }
+            username = props.getProperty("gpr.user") ?: System.getenv("GITHUB_ACTOR") ?: ""
+            password = props.getProperty("gpr.key") ?: System.getenv("GITHUB_TOKEN") ?: ""
+        }
+    }
+}
+
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'com.google.android.material:material:1.12.0'
-    // To test JitPack, we consume the dependency.
-    // If testing locally, it uses mavenLocal()
-    implementation 'com.github.ali-saranj.custom-jitsi-meet:jitsi-meet-sdk:0.0.0'
+    implementation "io.github.ali-saranj:custom-jitsi-sdk:2.0.2-dirty"
 }
