@@ -263,6 +263,24 @@ def getGithubToken() {
     return props.getProperty("gpr.key") ?: project.findProperty("gpr.key") ?: System.getenv("GITHUB_TOKEN") ?: ""
 }
 
+def getAzureUser() {
+    def props = new Properties()
+    def localProps = project.rootProject.file("local.properties")
+    if (localProps.exists()) {
+        props.load(new FileInputStream(localProps))
+    }
+    return props.getProperty("azure.user") ?: project.findProperty("azure.user") ?: System.getenv("AZURE_ARTIFACTS_USER") ?: ""
+}
+
+def getAzureToken() {
+    def props = new Properties()
+    def localProps = project.rootProject.file("local.properties")
+    if (localProps.exists()) {
+        props.load(new FileInputStream(localProps))
+    }
+    return props.getProperty("azure.token") ?: project.findProperty("azure.token") ?: System.getenv("AZURE_ARTIFACTS_TOKEN") ?: ""
+}
+
 task sourcesJar(type: Jar) {
     archiveClassifier.set('sources')
     from android.sourceSets.main.java.srcDirs
@@ -314,6 +332,17 @@ publishing {
             credentials {
                 username = getGithubUser()
                 password = getGithubToken()
+            }
+        }
+        maven {
+            name = "KasraMavenFeed"
+            url = uri("https://tfs.kasraco.net/tfs/Kasra/AllTeams/_packaging/kasra-maven-feed/maven/v1")
+            authentication {
+                basic(BasicAuthentication)
+            }
+            credentials {
+                username = getAzureUser()
+                password = getAzureToken()
             }
         }
     }

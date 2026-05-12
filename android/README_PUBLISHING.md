@@ -1,63 +1,95 @@
 # Custom Jitsi Meet SDK Publishing
 
-This document outlines the architecture, release workflow, and integration details for the custom Jitsi Android SDK published to GitHub Packages.
+This document outlines the architecture, release workflow, and integration details for the custom Jitsi Android SDK published to GitHub Packages and Azure DevOps Artifacts.
 
 ## Architecture
 
-The project has been modified to publish not only the primary SDK module (`io.github.ali-saranj:custom-jitsi-sdk`) but also the required transient React Native dependencies (originally `com.facebook.react:*`) directly to the GitHub Packages Maven repository. This fat-publishing approach ensures that consumers simply define the target Maven repository and dependency coordinate without needing a local `node_modules` structure.
+The project has been modified to publish not only the primary SDK module (`io.github.ali-saranj:custom-jitsi-sdk`) but also the required transient React Native dependencies (originally `com.facebook.react:*`) directly to multiple Maven repositories. This "fat-publishing" approach ensures that consumers simply define the target Maven repository and dependency coordinate without needing a local `node_modules` structure.
+
+## Dual Publishing Support
+
+The SDK is automatically published to:
+1.  **GitHub Packages:** `https://maven.pkg.github.com/ali-saranj/custom-jitsi-meet`
+2.  **Azure DevOps Feed:** `https://tfs.kasraco.net/tfs/Kasra/AllTeams/_packaging/kasra-maven-feed/maven/v1`
 
 ## Integration / Consumer Setup
 
+### GitHub Packages
 1. Generate a GitHub Personal Access Token (PAT) with `read:packages` permissions.
-2. In your consumer project's `settings.gradle` or root `build.gradle`, add the GitHub Packages repository:
+2. Add the repository to your `settings.gradle` or `build.gradle`:
 
 ```gradle
 repositories {
-    google()
-    mavenCentral()
     maven {
         url = uri("https://maven.pkg.github.com/ali-saranj/custom-jitsi-meet")
         credentials {
-            username = "YOUR_GITHUB_USERNAME" // Or via GITHUB_ACTOR / local.properties
-            password = "YOUR_GITHUB_PAT"      // Or via GITHUB_TOKEN / local.properties
+            username = "YOUR_GITHUB_USERNAME"
+            password = "YOUR_GITHUB_PAT"
         }
     }
 }
 ```
 
-3. Add the dependency line in your `app/build.gradle`:
+### Azure DevOps (Kasra Feed)
+1. Use your Azure DevOps credentials (Username/PAT).
+2. Add the repository to your `settings.gradle` or `build.gradle`:
 
 ```gradle
-dependencies {
-    implementation("io.github.ali-saranj:custom-jitsi-sdk:2.0.2-dirty") // Replace with the latest tag
+repositories {
+    maven {
+        url = uri("https://tfs.kasraco.net/tfs/Kasra/AllTeams/_packaging/kasra-maven-feed/maven/v1")
+        authentication {
+            basic(BasicAuthentication)
+        }
+        credentials {
+            username = "YOUR_AZURE_USER"
+            password = "YOUR_AZURE_PAT"
+        }
+    }
 }
 ```
 
-## Local Publishing
+## Dependency Usage
+Add the dependency line in your `app/build.gradle`:
 
-You can publish the SDK and its dependencies locally to your Maven Local cache:
+```gradle
+dependencies {
+    implementation("io.github.ali-saranj:custom-jitsi-sdk:v1.0.0") // Replace with the latest tag
+}
+```
 
+## Publishing Workflow
+
+### Local Publishing
+Publish to your local Maven cache:
 ```bash
 cd android
 ./gradlew publishToMavenLocal
 ```
 
-For publishing to GitHub Packages directly:
-
+### Remote Publishing
+Ensure `local.properties` contains:
+```properties
+gpr.user=...
+gpr.key=...
+azure.user=...
+azure.token=...
+```
+Then run:
 ```bash
 cd android
-# Ensure GITHUB_ACTOR and GITHUB_TOKEN environment variables or local.properties gpr.user and gpr.key are set.
-./gradlew assembleRelease
-./gradlew publish -x :sdk:publishReleasePublicationToGitHubPackagesRepository --continue
-./gradlew :sdk:publish
+./gradlew clean assembleRelease
+./gradlew publish
 ```
 
 ## CI/CD Workflow
-
-A GitHub Actions workflow is present at `.github/workflows/publish.yml`. It triggers upon tagging a commit matching `v*.*.*` (e.g., `v1.0.0`). The pipeline automatically sets up JDK 17, caches dependencies, and executes the Gradle publish tasks utilizing the default `GITHUB_TOKEN`.
+The GitHub Actions workflow at `.github/workflows/publish.yml` triggers on `v*.*.*` tags.
+Ensure the following secrets are configured in your GitHub repository:
+*   `AZURE_ARTIFACTS_USER`
+*   `AZURE_ARTIFACTS_TOKEN`
+*   `GITHUB_TOKEN` (automatically provided)
 
 ## Troubleshooting
-
-- **401 Unauthorized:** Your credentials are wrong or missing. Check `local.properties` or environment variables `GITHUB_ACTOR` and `GITHUB_TOKEN`.
-- **403 Forbidden / 409 Conflict:** The version you are trying to publish already exists or you lack `write:packages` permission. Version numbers dynamically resolve from Git Tags!
-- **Missing transient packages:** If compilation fails for `com.facebook.react` packages, it means the dependencies were not pushed. Ensure you ran the full `./gradlew publish` command for the submodules.
+- **Read timed out (Azure):** The Azure feed might be slow. Gradle timeouts have been increased in `gradle.properties`.
+- **409 Conflict:** The version already exists in the repository. Increment the version tag.
+- **SSL_ERROR_SYSCALL:** Network restriction or proxy issue. Check if the feed URL is reachable from your environment.

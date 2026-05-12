@@ -103,6 +103,22 @@ allprojects {
                         password = props.getProperty("gpr.key") ?: System.getenv("GITHUB_TOKEN") ?: ""
                     }
                 }
+                maven {
+                    name = "KasraMavenFeed"
+                    url = uri("https://tfs.kasraco.net/tfs/Kasra/AllTeams/_packaging/kasra-maven-feed/maven/v1")
+                    authentication {
+                        basic(BasicAuthentication)
+                    }
+                    credentials {
+                        def props = new Properties()
+                        def localProps = rootProject.file("local.properties")
+                        if (localProps.exists()) {
+                            props.load(new FileInputStream(localProps))
+                        }
+                        username = props.getProperty("azure.user") ?: System.getenv("AZURE_ARTIFACTS_USER") ?: ""
+                        password = props.getProperty("azure.token") ?: System.getenv("AZURE_ARTIFACTS_TOKEN") ?: ""
+                    }
+                }
             }
         }
     }

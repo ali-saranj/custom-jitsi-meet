@@ -37,10 +37,26 @@ repositories {
             password = props.getProperty("gpr.key") ?: System.getenv("GITHUB_TOKEN") ?: ""
         }
     }
+    maven {
+        url = uri("https://tfs.kasraco.net/tfs/Kasra/AllTeams/_packaging/kasra-maven-feed/maven/v1")
+        authentication {
+            basic(BasicAuthentication)
+        }
+        credentials {
+            def props = new Properties()
+            def localProps = rootProject.file("local.properties")
+            if (localProps.exists()) {
+                props.load(new FileInputStream(localProps))
+            }
+            username = props.getProperty("azure.user") ?: System.getenv("AZURE_ARTIFACTS_USER") ?: ""
+            password = props.getProperty("azure.token") ?: System.getenv("AZURE_ARTIFACTS_TOKEN") ?: ""
+        }
+    }
 }
 
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'com.google.android.material:material:1.12.0'
-    implementation "io.github.ali-saranj:custom-jitsi-sdk:2.0.2-dirty"
+    // This will now try to resolve from both GitHub and Azure (and mavenLocal)
+    implementation "io.github.ali-saranj:custom-jitsi-sdk:1.0.0-dirty"
 }

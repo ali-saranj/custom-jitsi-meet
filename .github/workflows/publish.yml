@@ -1,4 +1,4 @@
-name: Publish Android SDK to GitHub Packages
+name: Publish Android SDK to GitHub & Azure
 
 on:
   push:
@@ -38,8 +38,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
+          AZURE_ARTIFACTS_USER: ${{ secrets.AZURE_ARTIFACTS_USER }}
+          AZURE_ARTIFACTS_TOKEN: ${{ secrets.AZURE_ARTIFACTS_TOKEN }}
         run: |
           cd android
           ./gradlew assembleRelease
-          ./gradlew publish -x :sdk:publishReleasePublicationToGitHubPackagesRepository --continue || true
+          # Publish sub-modules to both repositories
+          # Note: We use --continue and || true to ensure we attempt all publications even if some fail due to conflict
+          ./gradlew publish -x :sdk:publishReleasePublicationToGitHubPackagesRepository -x :sdk:publishReleasePublicationToKasraMavenFeedRepository --continue || true
+          # Publish main SDK to both
           ./gradlew :sdk:publish
